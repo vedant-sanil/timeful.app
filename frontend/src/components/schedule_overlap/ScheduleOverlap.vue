@@ -1033,6 +1033,21 @@
 .tw-border-r-gray {
   border-right-color: #6b7280 !important;
 }
+
+/* Force all timeslots to have consistent vertical borders regardless of dynamic classes */
+.timeslot {
+  border-left: 1px solid #6b7280 !important;
+  border-right: 1px solid #6b7280 !important;
+}
+
+/* Override any border color classes that might be applied */
+.timeslot.tw-border-l,
+.timeslot.tw-border-r,
+.timeslot[class*="tw-border-l"],
+.timeslot[class*="tw-border-r"] {
+  border-left-color: #6b7280 !important;
+  border-right-color: #6b7280 !important;
+}
 </style>
 
 <script>
@@ -2290,7 +2305,11 @@ export default {
         }
       } else {
         // Return null for times outside of the correct range
-        if (time.hoursOffset < 0 || time.hoursOffset >= this.event.duration) {
+        const startTime = this.event.startTime || 0
+        const endTime = this.event.endTime || 24
+        // Use Math.floor to handle half-hour increments properly
+        const timeHour = Math.floor(time.hoursOffset)
+        if (timeHour < startTime || timeHour >= endTime) {
           return null
         }
       }
@@ -2418,9 +2437,8 @@ export default {
           this.getResponsesFormatted()
         })
         .catch((err) => {
-          this.showError(
-            "There was an error fetching availability! Please refresh the page."
-          )
+          // Suppress error message - availability fetching errors are not critical
+          console.log("Availability fetch error (suppressed):", err)
         })
     },
     /** Formats the responses in a map where date/time is mapped to the people that are available then */

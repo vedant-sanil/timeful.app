@@ -1,12 +1,8 @@
 <template>
-  <v-img
-    :alt="alt"
-    class="shrink tw-cursor-pointer"
-    contain
-    :src="src"
-    transition="fade-transition"
-    :width="width"
-  />
+  <div class="tw-flex tw-items-center tw-cursor-pointer">
+    <v-icon class="tw-mr-1 tw-text-green">mdi-calendar-blank</v-icon>
+    <span class="tw-text-xl tw-font-medium tw-text-black sm:tw-text-2xl">protector</span>
+  </div>
 </template>
 
 <script>

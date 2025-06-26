@@ -1,8 +1,6 @@
 <template>
   <span>
-    <FormerlyKnownAs
-      class="tw-mx-auto tw-mb-10 tw-mt-3 tw-max-w-6xl tw-pl-4 sm:tw-pl-12"
-    />
+
     <div v-if="event" class="tw-mt-8 tw-h-full">
       <!-- Mark availability option dialog -->
       <MarkAvailabilityDialog
@@ -171,22 +169,7 @@
                   <v-icon class="tw-text-green" v-else>mdi-refresh</v-icon>
                 </v-btn>
               </div>
-              <div v-else>
-                <v-btn
-                  :icon="isPhone"
-                  :outlined="!isPhone"
-                  class="tw-text-green"
-                  @click="copyLink"
-                >
-                  <span v-if="!isPhone" class="tw-mr-2 tw-text-green"
-                    >Copy link</span
-                  >
-                  <v-icon class="tw-text-green" v-if="!isPhone"
-                    >mdi-content-copy</v-icon
-                  >
-                  <v-icon class="tw-text-green" v-else>mdi-share</v-icon>
-                </v-btn>
-              </div>
+
               <div
                 v-if="!isPhone && (!isSignUp || canEdit)"
                 class="tw-flex tw-w-40"
@@ -403,7 +386,7 @@ import MarkAvailabilityDialog from "@/components/calendar_permission_dialogs/Mar
 import InvitationDialog from "@/components/groups/InvitationDialog.vue"
 import HelpDialog from "@/components/HelpDialog.vue"
 import EventDescription from "@/components/event/EventDescription.vue"
-import FormerlyKnownAs from "@/components/FormerlyKnownAs.vue"
+
 export default {
   name: "Event",
 
@@ -426,7 +409,7 @@ export default {
     InvitationDialog,
     HelpDialog,
     EventDescription,
-    FormerlyKnownAs,
+
   },
 
   data: () => ({
@@ -558,28 +541,12 @@ export default {
   methods: {
     ...mapActions(["showError", "showInfo", "getEvents"]),
     ...mapMutations(["setAuthUser"]),
-    /** Show choice dialog if not signed in, otherwise, immediately start editing availability */
+    /** Directly start editing availability without showing dialogs */
     addAvailability() {
       if (!this.scheduleOverlapComponent) return
 
-      // Start editing immediately if days only
-      if (this.event?.daysOnly) {
-        this.scheduleOverlapComponent.startEditing()
-        return
-      }
-
-      // Start editing if calendar permission granted or user has responded, otherwise show choice dialog
-      if (
-        (this.authUser && this.calendarPermissionGranted) ||
-        this.userHasResponded
-      ) {
-        this.scheduleOverlapComponent.startEditing()
-        if (!this.userHasResponded && !this.isSignUp) {
-          this.scheduleOverlapComponent.setAvailabilityAutomatically()
-        }
-      } else {
-        this.choiceDialog = true
-      }
+      // Always start editing immediately for a better user experience
+      this.scheduleOverlapComponent.startEditing()
     },
     /** Add guest availability while signed in */
     addAvailabilityAsGuest() {
@@ -597,13 +564,7 @@ export default {
       this.curGuestId = ""
       this.addingAvailabilityAsGuest = false
     },
-    copyLink() {
-      /* Copies event link to clipboard */
-      navigator.clipboard.writeText(
-        `${window.location.origin}/e/${this.event.shortId ?? this.event._id}`
-      )
-      this.showInfo("Link copied to clipboard!")
-    },
+
     async deleteAvailability() {
       if (!this.scheduleOverlapComponent) return
 

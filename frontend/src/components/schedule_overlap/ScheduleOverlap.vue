@@ -245,10 +245,11 @@
                             >
                               <div
                                 class="timeslot"
-                                :class="
+                                :class="[
                                   timeslotClassStyle[d * times.length + t]
-                                    ?.class
-                                "
+                                    ?.class,
+                                  splitTimes[0][t].hoursOffset % 1 === 0 ? 'hour-mark' : 'half-hour-mark'
+                                ]"
                                 :style="
                                   timeslotClassStyle[d * times.length + t]
                                     ?.style
@@ -270,13 +271,14 @@
                               >
                                 <div
                                   class="timeslot"
-                                  :class="
+                                  :class="[
                                     timeslotClassStyle[
                                       d * times.length +
                                         t +
                                         splitTimes[0].length
-                                    ]?.class
-                                  "
+                                    ]?.class,
+                                    splitTimes[1][t].hoursOffset % 1 === 0 ? 'hour-mark' : 'half-hour-mark'
+                                  ]"
                                   :style="
                                     timeslotClassStyle[
                                       d * times.length +
@@ -983,6 +985,54 @@
 #timezone-select {
   width: 5px;
 }
+
+/* Calendar grid styling - Force visible borders */
+.timeslot {
+  border-right: 1px solid #6b7280 !important; /* Day separators - match hour mark color */
+  border-bottom: 1px solid #e5e7eb !important; /* Default light border */
+  position: relative;
+  min-height: 30px; /* Ensure timeslots have minimum height for visibility */
+}
+
+/* Hour marks - darker borders (1:00, 2:00, 3:00, etc.) */
+.timeslot.hour-mark {
+  border-bottom: 1px solid #6b7280 !important; /* DARKER GRAY border for hour marks */
+}
+
+/* Half-hour marks - lighter borders (12:30, 1:30, 2:30, etc.) */
+.timeslot.half-hour-mark {
+  border-bottom: 1px solid #e5e7eb !important; /* LIGHT GRAY border for half-hour marks */
+}
+
+/* First timeslot of each day gets top border */
+.timeslot:first-child {
+  border-top: 1px solid #6b7280 !important; /* Match hour mark styling */
+}
+
+/* Add subtle background for better visibility */
+.timeslot:hover {
+  background-color: #f9fafb !important;
+}
+
+/* Make sure the grid container has proper styling */
+.tw-grid .tw-w-full {
+  border-left: 1px solid #6b7280 !important; /* Day separators - match hour mark color */
+}
+
+/* Override Tailwind border classes that are dynamically added */
+.timeslot.tw-border-l-gray,
+.timeslot.tw-border-r-gray {
+  border-left-color: #6b7280 !important;
+  border-right-color: #6b7280 !important;
+}
+
+.tw-border-l-gray {
+  border-left-color: #6b7280 !important;
+}
+
+.tw-border-r-gray {
+  border-right-color: #6b7280 !important;
+}
 </style>
 
 <script>
@@ -1095,7 +1145,7 @@ export default {
         SCHEDULE_EVENT: "schedule_event", // Schedule event on gcal
         SET_SPECIFIC_TIMES: "set_specific_times", // Set specific times for the event
       },
-      state: "best_times",
+      state: "heatmap", // Default to heatmap for normal calendar view
 
       availability: new Set(), // The current user's availability
       ifNeeded: new Set(), // The current user's "if needed" availability
@@ -1844,133 +1894,40 @@ export default {
      * the first element is an array of times between start time and end time. the second element is an empty array
      * */
     splitTimes() {
-      const splitTimes = [[], []]
+      const splitTimes = [[], []];
 
-      const utcStartTime = this.event.startTime
-      const utcEndTime = this.event.startTime + this.event.duration
-      const localStartTime = utcTimeToLocalTime(
-        utcStartTime,
-        this.timezoneOffset
-      )
-      const localEndTime = utcTimeToLocalTime(utcEndTime, this.timezoneOffset)
-
-      // Weird timezones are timezones that are not a multiple of 60 minutes (e.g. GMT-2:30)
-      const isWeirdTimezone = this.timezoneOffset % 60 !== 0
-      const startTimeIsWeird = utcStartTime % 1 !== 0
-      let timeOffset = 0
-      if (isWeirdTimezone !== startTimeIsWeird) {
-        timeOffset = -0.5
-      }
-
+      // Define getExtraTimes inside splitTimes
       const getExtraTimes = (hoursOffset) => {
         if (this.timeslotDuration === timeslotDurations.FIFTEEN_MINUTES) {
           return [
-            {
-              hoursOffset: hoursOffset + 0.25,
-            },
-            {
-              hoursOffset: hoursOffset + 0.5,
-            },
-            {
-              hoursOffset: hoursOffset + 0.75,
-            },
-          ]
+            { hoursOffset: hoursOffset + 0.25 },
+            { hoursOffset: hoursOffset + 0.5 },
+            { hoursOffset: hoursOffset + 0.75 },
+          ];
         } else if (this.timeslotDuration === timeslotDurations.THIRTY_MINUTES) {
           return [
-            {
-              hoursOffset: hoursOffset + 0.5,
-            },
-          ]
+            { hoursOffset: hoursOffset + 0.5 },
+          ];
         }
-        return []
+        return [];
+      };
+
+      for (let i = 0; i < 24; ++i) {
+        const hoursOffset = i;
+        splitTimes[0].push({
+          hoursOffset,
+          text: timeNumToTimeText(i, this.timeType === timeTypes.HOUR12),
+        });
+        splitTimes[0].push(...getExtraTimes(hoursOffset));
       }
-
-      if (this.state === this.states.SET_SPECIFIC_TIMES) {
-        // Hours offset for specific times starts from minHours
-        for (let i = 0; i <= 23; ++i) {
-          const hoursOffset = i
-          if (i === 9) {
-            // add an id so we can scroll to it
-            splitTimes[0].push({
-              id: "time-9",
-              hoursOffset,
-              text: timeNumToTimeText(i, this.timeType === timeTypes.HOUR12),
-            })
-          } else {
-            splitTimes[0].push({
-              hoursOffset,
-              text: timeNumToTimeText(i, this.timeType === timeTypes.HOUR12),
-            })
-          }
-          splitTimes[0].push(...getExtraTimes(hoursOffset))
-        }
-        return splitTimes
-      }
-
-      if (localEndTime <= localStartTime && localEndTime !== 0) {
-        for (let i = 0; i < localEndTime; ++i) {
-          splitTimes[0].push({
-            hoursOffset: this.event.duration - (localEndTime - i),
-            text: timeNumToTimeText(i, this.timeType === timeTypes.HOUR12),
-          })
-          splitTimes[0].push(
-            ...getExtraTimes(this.event.duration - (localEndTime - i))
-          )
-        }
-        for (let i = 0; i < 24 - localStartTime; ++i) {
-          const adjustedI = i + timeOffset
-          splitTimes[1].push({
-            hoursOffset: adjustedI,
-            text: timeNumToTimeText(
-              localStartTime + adjustedI,
-              this.timeType === timeTypes.HOUR12
-            ),
-          })
-          splitTimes[1].push(...getExtraTimes(adjustedI))
-        }
-      } else {
-        for (let i = 0; i < this.event.duration; ++i) {
-          const adjustedI = i + timeOffset
-          const utcTimeNum = this.event.startTime + adjustedI
-          const localTimeNum = utcTimeToLocalTime(
-            utcTimeNum,
-            this.timezoneOffset
-          )
-
-          splitTimes[0].push({
-            hoursOffset: adjustedI,
-            text: timeNumToTimeText(
-              localTimeNum,
-              this.timeType === timeTypes.HOUR12
-            ),
-          })
-          splitTimes[0].push(...getExtraTimes(adjustedI))
-        }
-        if (timeOffset !== 0) {
-          const localTimeNum = utcTimeToLocalTime(
-            this.event.startTime + this.event.duration - 0.5,
-            this.timezoneOffset
-          )
-          splitTimes[0].push({
-            hoursOffset: this.event.duration - 0.5,
-            text: timeNumToTimeText(
-              localTimeNum,
-              this.timeType === timeTypes.HOUR12
-            ),
-          })
-          splitTimes[0].push(...getExtraTimes(this.event.duration - 0.5))
-        }
-        splitTimes[1] = []
-      }
-
-      return splitTimes
+      return splitTimes;
     },
     /** Returns the times that are encompassed by startTime and endTime */
     times() {
       return [...this.splitTimes[1], ...this.splitTimes[0]]
     },
     timeslotDuration() {
-      return this.event.timeIncrement ?? timeslotDurations.FIFTEEN_MINUTES
+      return this.event.timeIncrement ?? timeslotDurations.THIRTY_MINUTES
     },
     timeslotHeight() {
       if (this.timeslotDuration === timeslotDurations.FIFTEEN_MINUTES) {
@@ -2819,7 +2776,7 @@ export default {
       }
       this.availabilityAnimEnabled = false
     },
-    async submitAvailability(guestPayload = { name: "", email: "" }) {
+    async submitAvailability(guestPayload = { name: "", email: "", phone: "" }) {
       let payload = {}
 
       let type = ""
@@ -2847,6 +2804,7 @@ export default {
           payload.guest = true
           payload.name = guestPayload.name
           payload.email = guestPayload.email
+          payload.phone_number = guestPayload.phone
           localStorage[this.guestNameKey] = guestPayload.name
         }
       }
@@ -4351,7 +4309,7 @@ export default {
             const yOffset = -150
             const y =
               time9.getBoundingClientRect().top + window.scrollY + yOffset
-            window.scrollTo({ top: y, behavior: "smooth" })
+            // window.scrollTo({ top: y, behavior: "smooth" }) // Disabled to prevent weird gap
           }
         })
       }

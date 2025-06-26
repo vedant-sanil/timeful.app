@@ -6,7 +6,7 @@
         <div>
           <div class="tw-mb-3 tw-flex tw-items-center">
             <v-icon class="tw-mr-1 tw-text-white">mdi-calendar-blank</v-icon>
-            <span class="tw-text-2xl tw-font-medium">timeful</span>
+            <span class="tw-text-2xl tw-font-medium">protector</span>
           </div>
           <div class="tw-mb-6 tw-leading-snug">
             Made with 💚 by
